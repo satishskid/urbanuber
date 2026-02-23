@@ -1,0 +1,12 @@
+name = "skids-edge-api"
+main = "src/index.ts"
+compatibility_date = "2024-05-12"
+
+# R2 Bucket Bindings
+[[r2_buckets]]
+binding = "MEDSCREEN_BUCKET"
+bucket_name = "medscreen"
+
+# AI Gateway 
+[vars]
+AI_GATEWAY_URL = "https://gateway.ai.cloudflare.com/v1/9f4998a66a5d7bd7a230d0222544fbe6/urbanuber"
