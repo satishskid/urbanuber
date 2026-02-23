@@ -6,7 +6,7 @@ import { StatusBar } from 'expo-status-bar';
 import { Text, View } from 'react-native';
 import { IntakeScreen } from './src/screens/IntakeScreen';
 import { MedicalTimelineScreen } from './src/screens/MedicalTimelineScreen';
-import { PhoneAuthScreen } from '@skids/ui';
+import { PhoneAuthScreen, VideoCallScreen } from '@skids/ui';
 
 import './global.css';
 
@@ -37,6 +37,18 @@ function HomeScreen({ navigation }: any) {
                     <Text className="text-white font-bold text-lg">📋 Health Timeline</Text>
                     <Text className="text-purple-200 text-sm mt-1">
                         View your child's complete medical history
+                    </Text>
+                </View>
+                <View className="bg-green-600 rounded-2xl p-5"
+                    onTouchEnd={() => navigation.navigate('VideoCall', {
+                        roomName: 'consult_patient_mock_123',
+                        identity: 'patient_mock_123',
+                        displayName: 'Parent',
+                    })}
+                >
+                    <Text className="text-white font-bold text-lg">📹 Start Video Consult</Text>
+                    <Text className="text-green-200 text-sm mt-1">
+                        Connect live with your child's doctor
                     </Text>
                 </View>
             </View>
@@ -124,6 +136,17 @@ export default function App() {
                                 headerStyle: { backgroundColor: '#fff' },
                             }}
                         />
+                        <Stack.Screen name="VideoCall">
+                            {(props: any) => (
+                                <VideoCallScreen
+                                    roomName={props.route?.params?.roomName || 'default'}
+                                    identity={props.route?.params?.identity || 'patient'}
+                                    displayName={props.route?.params?.displayName}
+                                    role="patient"
+                                    onCallEnd={() => props.navigation.goBack()}
+                                />
+                            )}
+                        </Stack.Screen>
                     </>
                 )}
             </Stack.Navigator>

@@ -10,3 +10,7 @@ bucket_name = "medscreen"
 # AI Gateway 
 [vars]
 AI_GATEWAY_URL = "https://gateway.ai.cloudflare.com/v1/9f4998a66a5d7bd7a230d0222544fbe6/urbanuber"
+# LiveKit — set these as secrets via: wrangler secret put LIVEKIT_API_KEY / LIVEKIT_API_SECRET
+# LIVEKIT_API_KEY and LIVEKIT_API_SECRET are configured as Worker Secrets
+# LIVEKIT_URL defaults to LiveKit Cloud free tier
+LIVEKIT_URL = "wss://skids-app.livekit.cloud"

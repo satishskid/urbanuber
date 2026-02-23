@@ -2,6 +2,7 @@ import { Hono } from 'hono';
 import { cors } from 'hono/cors';
 import { S3Client, PutObjectCommand } from '@aws-sdk/client-s3';
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
+import { generateLiveKitToken } from './livekit-token';
 
 type Bindings = {
     MEDSCREEN_BUCKET: R2Bucket;
@@ -10,6 +11,10 @@ type Bindings = {
     R2_ACCESS_KEY_ID: string;
     R2_SECRET_ACCESS_KEY: string;
     CF_ACCOUNT_ID: string;
+    // LiveKit
+    LIVEKIT_API_KEY: string;
+    LIVEKIT_API_SECRET: string;
+    LIVEKIT_URL: string;
 };
 
 const app = new Hono<{ Bindings: Bindings }>();
@@ -126,6 +131,42 @@ app.get('/api/upload-url', async (c) => {
     } catch (err: any) {
         console.error('Upload URL Error:', err);
         return c.json({ error: 'Failed to generate presigned URL' }, 500);
+    }
+});
+// Route 3: LiveKit Video Token Generation
+app.post('/api/video/token', async (c) => {
+    try {
+        const { roomName, identity, name } = await c.req.json();
+
+        if (!roomName || !identity) {
+            return c.json({ error: 'roomName and identity are required' }, 400);
+        }
+
+        const apiKey = c.env.LIVEKIT_API_KEY;
+        const apiSecret = c.env.LIVEKIT_API_SECRET;
+        const livekitUrl = c.env.LIVEKIT_URL;
+
+        if (!apiKey || !apiSecret) {
+            return c.json({ error: 'LiveKit credentials not configured' }, 500);
+        }
+
+        const token = await generateLiveKitToken(
+            apiKey,
+            apiSecret,
+            roomName,
+            identity,
+            name || identity,
+            3600 // 1 hour TTL
+        );
+
+        return c.json({
+            token,
+            url: livekitUrl,
+            room: roomName,
+        });
+    } catch (err: any) {
+        console.error('Video Token Error:', err);
+        return c.json({ error: 'Failed to generate video token' }, 500);
     }
 });
 

@@ -5,7 +5,7 @@ import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { StatusBar } from 'expo-status-bar';
 import { Text, View, TouchableOpacity } from 'react-native';
 import { ConsultationScreen } from './src/screens/ConsultationScreen';
-import { PhoneAuthScreen, TriageScreen } from '@skids/ui';
+import { PhoneAuthScreen, TriageScreen, VideoCallScreen } from '@skids/ui';
 
 import './global.css';
 
@@ -46,9 +46,19 @@ function ProviderDashboard({ navigation }: any) {
               patientId: 'patient_mock_123',
               serviceRequestId: 'sr_mock_001',
             })}
-            className="bg-blue-600 rounded-xl py-3 items-center"
+            className="bg-blue-600 rounded-xl py-3 items-center mb-2"
           >
             <Text className="text-white font-bold">Accept & Start Consult</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            onPress={() => navigation.navigate('VideoCall', {
+              roomName: 'consult_patient_mock_123',
+              identity: 'dr_mock_001',
+              displayName: 'Dr. Smith',
+            })}
+            className="bg-green-600 rounded-xl py-3 items-center"
+          >
+            <Text className="text-white font-bold">📹 Start Video Call</Text>
           </TouchableOpacity>
         </View>
       )}
@@ -160,6 +170,17 @@ export default function App() {
                 headerStyle: { backgroundColor: '#fff' },
               }}
             />
+            <Stack.Screen name="VideoCall">
+              {(props: any) => (
+                <VideoCallScreen
+                  roomName={props.route?.params?.roomName || 'default'}
+                  identity={props.route?.params?.identity || 'provider'}
+                  displayName={props.route?.params?.displayName}
+                  role="provider"
+                  onCallEnd={() => props.navigation.goBack()}
+                />
+              )}
+            </Stack.Screen>
           </>
         )}
       </Stack.Navigator>

@@ -1,9 +1,9 @@
 import { initializeApp, getApps, getApp } from "firebase/app";
-import { 
-  getFirestore, 
-  initializeFirestore, 
-  persistentLocalCache, 
-  persistentMultipleTabManager 
+import {
+  getFirestore,
+  initializeFirestore,
+  persistentLocalCache,
+  persistentMultipleTabManager
 } from "firebase/firestore";
 import { getAuth } from "firebase/auth";
 
@@ -45,3 +45,4 @@ try {
 }
 
 export { app, auth, db };
+export * from './geo-dispatch';
