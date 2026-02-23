@@ -1,6 +1,7 @@
 name = "skids-edge-api"
 main = "src/index.ts"
 compatibility_date = "2024-05-12"
+account_id = "9f4998a66a5d7bd7a230d0222544fbe6"
 
 # R2 Bucket Bindings
 [[r2_buckets]]

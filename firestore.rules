@@ -1,0 +1,63 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // ─── Patients ───────────────────────────────────
+    // Patients can read/write their own document
+    match /patients/{patientId} {
+      allow read: if request.auth != null && request.auth.uid == patientId;
+      allow create: if request.auth != null && request.auth.uid == patientId;
+      allow update: if request.auth != null && request.auth.uid == patientId;
+      // Admins can read all patients
+      allow read: if request.auth != null &&
+        request.auth.token.email in ['satish@skids.health', 'satish.rath@gmail.com'];
+    }
+
+    // ─── Providers ──────────────────────────────────
+    // Providers can read/write their own document
+    match /providers/{providerId} {
+      allow read: if request.auth != null;
+      allow write: if request.auth != null && request.auth.uid == providerId;
+      // Admins can read/write all
+      allow read, write: if request.auth != null &&
+        request.auth.token.email in ['satish@skids.health', 'satish.rath@gmail.com'];
+    }
+
+    // ─── Service Requests ───────────────────────────
+    match /service_requests/{requestId} {
+      // Patients can create and read their own requests
+      allow create: if request.auth != null;
+      allow read: if request.auth != null && (
+        resource.data.patient_uid == request.auth.uid ||
+        resource.data.provider_uid == request.auth.uid
+      );
+      // Providers can update (accept/complete) requests assigned to them
+      allow update: if request.auth != null && (
+        resource.data.provider_uid == request.auth.uid ||
+        resource.data.patient_uid == request.auth.uid
+      );
+      // Admins can read/write all requests
+      allow read, write: if request.auth != null &&
+        request.auth.token.email in ['satish@skids.health', 'satish.rath@gmail.com'];
+    }
+
+    // ─── Clinical Ledger (Append-Only) ──────────────
+    match /clinical_ledger/{entryId} {
+      // Anyone authenticated can read ledger entries for their requests
+      allow read: if request.auth != null;
+      // Only providers can create new entries (append-only)
+      allow create: if request.auth != null;
+      // No updates or deletes — immutable event log
+      allow update, delete: if false;
+      // Admins can read all
+      allow read: if request.auth != null &&
+        request.auth.token.email in ['satish@skids.health', 'satish.rath@gmail.com'];
+    }
+
+    // ─── Provider Locations (for geospatial dispatch) ─
+    match /provider_locations/{providerId} {
+      allow read: if request.auth != null;
+      allow write: if request.auth != null && request.auth.uid == providerId;
+    }
+  }
+}
