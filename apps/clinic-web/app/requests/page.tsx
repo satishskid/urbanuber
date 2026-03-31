@@ -26,7 +26,7 @@ export default function RequestsPage() {
     const sub = pollData(
       () => getServiceRequests(),
       (list) => {
-        setRequests(list as ServiceRequest[]);
+        setRequests(list as unknown as ServiceRequest[]);
         setLoading(false);
       },
       5000,

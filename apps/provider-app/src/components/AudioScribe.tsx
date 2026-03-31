@@ -6,14 +6,12 @@ import {
   ActivityIndicator,
   Platform,
 } from "react-native";
-import { Audio } from "expo-av";
 import { LocalSpeechToText } from "@skids/ai-scribe-local";
 
 export interface AudioScribeProps {
   onTranscriptReady: (transcript: string) => void;
   onLiveTranscript?: (transcript: string) => void;
   isProcessing: boolean;
-  /** Which AI source is active — controls UI label */
   aiSource?: "local" | "cloud" | null;
 }
 
@@ -23,40 +21,37 @@ export const AudioScribe: React.FC<AudioScribeProps> = ({
   isProcessing,
   aiSource,
 }) => {
-  const [recording, setRecording] = useState<Audio.Recording | null>(null);
   const [isRecording, setIsRecording] = useState(false);
-  const [permissionResponse, requestPermission] = Audio.usePermissions();
   const [liveText, setLiveText] = useState("");
   const sttRef = useRef<LocalSpeechToText | null>(null);
+  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
+  const streamRef = useRef<MediaStream | null>(null);
+  const chunksRef = useRef<Blob[]>([]);
 
-  // Check if we're on web (can use Web Speech API)
   const isWeb = Platform.OS === "web";
 
   useEffect(() => {
     return () => {
-      if (recording) {
-        recording.stopAndUnloadAsync();
-      }
-      if (sttRef.current) {
-        sttRef.current.stop().catch(() => {});
+      if (sttRef.current) sttRef.current.stop().catch(() => {});
+      if (streamRef.current) {
+        streamRef.current.getTracks().forEach((t) => t.stop());
       }
     };
-  }, [recording]);
+  }, []);
 
   const startRecording = async () => {
     try {
-      if (permissionResponse?.status !== "granted") {
-        const response = await requestPermission();
-        if (response.status !== "granted") {
-          alert("Permission to access microphone is required!");
-          return;
-        }
-      }
-
       setLiveText("");
+      chunksRef.current = [];
 
-      // On web, start real-time speech recognition alongside audio recording
+      // Web: use browser MediaRecorder + Web Speech API
       if (isWeb) {
+        const stream = await navigator.mediaDevices.getUserMedia({
+          audio: true,
+        });
+        streamRef.current = stream;
+
+        // Start speech recognition
         sttRef.current = new LocalSpeechToText();
         if (sttRef.current.isSupported()) {
           try {
@@ -65,39 +60,31 @@ export const AudioScribe: React.FC<AudioScribeProps> = ({
               onLiveTranscript?.(transcript);
             });
           } catch (err) {
-            console.warn(
-              "[AudioScribe] Web Speech API failed, falling back to audio-only:",
-              err,
-            );
+            console.warn("[AudioScribe] Web Speech API failed:", err);
             sttRef.current = null;
           }
         }
+
+        // Record audio blob (for potential upload)
+        const recorder = new MediaRecorder(stream);
+        recorder.ondataavailable = (e) => {
+          if (e.data.size > 0) chunksRef.current.push(e.data);
+        };
+        recorder.start();
+        mediaRecorderRef.current = recorder;
       }
 
-      // Always record audio (for playback + fallback)
-      await Audio.setAudioModeAsync({
-        allowsRecordingIOS: true,
-        playsInSilentModeIOS: true,
-      });
-
-      console.log("Starting recording..");
-      const { recording } = await Audio.Recording.createAsync(
-        Audio.RecordingOptionsPresets.HIGH_QUALITY,
-      );
-      setRecording(recording);
       setIsRecording(true);
-      console.log("Recording started");
     } catch (err) {
       console.error("Failed to start recording", err);
+      alert("Microphone access denied. Please allow microphone permissions.");
     }
   };
 
   const stopRecording = async () => {
     try {
-      console.log("Stopping recording..");
       setIsRecording(false);
 
-      // Stop speech recognition first
       let sttTranscript = "";
       if (sttRef.current) {
         try {
@@ -108,32 +95,28 @@ export const AudioScribe: React.FC<AudioScribeProps> = ({
         sttRef.current = null;
       }
 
-      // Stop audio recording
-      if (recording) {
-        await recording.stopAndUnloadAsync();
-        await Audio.setAudioModeAsync({ allowsRecordingIOS: false });
-        const uri = recording.getURI();
-        console.log("Recording stopped and stored at", uri);
-        setRecording(null);
+      if (
+        mediaRecorderRef.current &&
+        mediaRecorderRef.current.state !== "inactive"
+      ) {
+        mediaRecorderRef.current.stop();
+      }
+      if (streamRef.current) {
+        streamRef.current.getTracks().forEach((t) => t.stop());
+        streamRef.current = null;
       }
 
-      // Use the real transcript if we got one, otherwise fall back
+      // Use real transcript if available
       if (sttTranscript && sttTranscript.length > 10) {
         onTranscriptReady(sttTranscript);
-      } else if (isWeb) {
-        // Web but no STT result — show the live text we accumulated
-        if (liveText && liveText.length > 10) {
-          onTranscriptReady(liveText);
-        } else {
-          simulateTranscription();
-        }
+      } else if (liveText && liveText.length > 10) {
+        onTranscriptReady(liveText);
       } else {
-        // Native (not web) — simulate for now
-        // TODO: integrate whisper.cpp for native when available
         simulateTranscription();
       }
     } catch (error) {
       console.error("Failed to stop recording", error);
+      setIsRecording(false);
     }
   };
 
@@ -156,7 +139,6 @@ export const AudioScribe: React.FC<AudioScribeProps> = ({
 
   return (
     <View className="items-center justify-center p-6 bg-white rounded-2xl border border-gray-100 shadow-sm">
-      {/* AI Source badge */}
       {aiSource && (
         <View
           className={`mb-3 px-3 py-1 rounded-full ${aiSource === "local" ? "bg-green-50 border border-green-200" : "bg-blue-50 border border-blue-200"}`}
@@ -201,7 +183,6 @@ export const AudioScribe: React.FC<AudioScribeProps> = ({
         </View>
       )}
 
-      {/* Live transcript preview during recording */}
       {isRecording && liveText && (
         <View className="mt-4 p-3 bg-gray-50 rounded-xl w-full">
           <Text className="text-xs text-gray-400 mb-1 font-semibold uppercase">

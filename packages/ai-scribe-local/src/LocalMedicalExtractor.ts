@@ -73,7 +73,10 @@ export class LocalMedicalExtractor {
     try {
       if (onProgress) onProgress(10, "Loading transformers.js...");
 
-      const { pipeline, env } = await import("@huggingface/transformers");
+      const transformers = await import(
+        /* webpackIgnore: true */ "@huggingface/transformers"
+      );
+      const { pipeline, env } = transformers;
 
       // Ensure ONNX runtime uses WebGPU
       if (env.backends.onnx.wasm) {

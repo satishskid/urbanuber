@@ -22,7 +22,7 @@ export default function ProvidersPage() {
     const sub = pollData(
       () => getProviders(),
       (list) => {
-        setProviders(list as Provider[]);
+        setProviders(list as unknown as Provider[]);
         setLoading(false);
       },
       5000,
