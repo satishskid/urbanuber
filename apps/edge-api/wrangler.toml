@@ -1,7 +1,13 @@
 name = "skids-edge-api"
 main = "src/index.ts"
 compatibility_date = "2024-05-12"
+compatibility_flags = ["nodejs_compat"]
 account_id = "9f4998a66a5d7bd7a230d0222544fbe6"
+
+# Delete the old SignalingRoom Durable Object that no longer exists in code
+[[migrations]]
+tag = "v2"
+deleted_classes = ["SignalingRoom"]
 
 # R2 Bucket Bindings
 [[r2_buckets]]
@@ -11,7 +17,4 @@ bucket_name = "medscreen"
 # AI Gateway 
 [vars]
 AI_GATEWAY_URL = "https://gateway.ai.cloudflare.com/v1/9f4998a66a5d7bd7a230d0222544fbe6/urbanuber"
-# LiveKit — set these as secrets via: wrangler secret put LIVEKIT_API_KEY / LIVEKIT_API_SECRET
-# LIVEKIT_API_KEY and LIVEKIT_API_SECRET are configured as Worker Secrets
-# LIVEKIT_URL defaults to LiveKit Cloud free tier
 LIVEKIT_URL = "wss://urbanuber-mumv2mg5.livekit.cloud"
