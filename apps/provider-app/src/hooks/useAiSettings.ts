@@ -1,13 +1,16 @@
 import { useState, useEffect, useCallback } from "react";
-import { doc, onSnapshot, setDoc } from "firebase/firestore";
-import { auth, db } from "@skids/firebase";
+import {
+  getProvider,
+  updateProviderSettings,
+  Provider,
+} from "@skids/api-client";
+import { auth } from "@skids/firebase";
 
 export interface AiSettings {
   localNodeUrl: string;
   cloudProvider: "groq" | "together_ai" | "aws_bedrock";
   cloudApiKey: string;
   mode: "hybrid" | "local_only" | "cloud_only";
-  /** Whether to use MedScribe local WebGPU inference (default: true) */
   useLocalScribe: boolean;
 }
 
@@ -24,27 +27,37 @@ export function useAiSettings() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    if (!auth.currentUser || !db) return;
-
-    const docRef = doc(db, "providers", auth.currentUser.uid);
-    const unsubscribe = onSnapshot(docRef, (docSnap) => {
-      if (docSnap.exists() && docSnap.data().aiSettings) {
-        setSettings({ ...DEFAULT_SETTINGS, ...docSnap.data().aiSettings });
-      }
+    if (!auth.currentUser) {
       setLoading(false);
-    });
+      return;
+    }
 
-    return () => unsubscribe();
+    let cancelled = false;
+
+    const fetchSettings = async () => {
+      try {
+        const provider = await getProvider(auth.currentUser!.uid);
+        if (!cancelled && provider?.ai_settings) {
+          const parsed = JSON.parse(provider.ai_settings);
+          setSettings({ ...DEFAULT_SETTINGS, ...parsed });
+        }
+      } catch (err) {
+        console.warn("[useAiSettings] Failed to fetch settings:", err);
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    };
+
+    fetchSettings();
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   const saveSettings = useCallback(async (newSettings: Partial<AiSettings>) => {
-    if (!auth.currentUser || !db) throw new Error("Not authenticated");
-
-    await setDoc(
-      doc(db, "providers", auth.currentUser.uid),
-      { aiSettings: newSettings },
-      { merge: true },
-    );
+    if (!auth.currentUser) throw new Error("Not authenticated");
+    await updateProviderSettings(auth.currentUser.uid, newSettings);
+    setSettings((prev) => ({ ...prev, ...newSettings }));
   }, []);
 
   return { settings, loading, saveSettings, DEFAULT_SETTINGS };

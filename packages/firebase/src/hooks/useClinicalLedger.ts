@@ -1,78 +1,72 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from "react";
 import {
-    collection,
-    query,
-    where,
-    orderBy,
-    onSnapshot,
-    addDoc,
-    serverTimestamp,
-    FirestoreError
-} from 'firebase/firestore';
-import { db } from '../index';
+  getClinicalLedgerByPatient,
+  addClinicalLedgerEntry,
+  pollData,
+  PollSubscription,
+} from "@skids/api-client";
 
 export interface ClinicalEvent {
-    id?: string;
-    patientId: string;
-    providerId: string;
-    type: string; // e.g., 'observation', 'vitals', 'triage_context', 'service_request'
-    payload: any;
-    createdAt: any;
+  id?: string;
+  patientId: string;
+  providerId: string;
+  type: string;
+  payload: any;
+  createdAt: any;
 }
 
 export const useClinicalLedger = (patientId: string) => {
-    const [events, setEvents] = useState<ClinicalEvent[]>([]);
-    const [loading, setLoading] = useState<boolean>(true);
-    const [error, setError] = useState<FirestoreError | null>(null);
+  const [events, setEvents] = useState<ClinicalEvent[]>([]);
+  const [loading, setLoading] = useState<boolean>(true);
+  const [error, setError] = useState<Error | null>(null);
+  const subRef = useRef<PollSubscription<any> | null>(null);
 
-    useEffect(() => {
-        if (!patientId) {
-            setEvents([]);
-            setLoading(false);
-            return;
-        }
+  useEffect(() => {
+    if (!patientId) {
+      setEvents([]);
+      setLoading(false);
+      return;
+    }
 
-        const q = query(
-            collection(db, 'clinical_ledger'),
-            where('patientId', '==', patientId),
-            orderBy('createdAt', 'desc')
-        );
+    setLoading(true);
 
-        const unsubscribe = onSnapshot(
-            q,
-            { includeMetadataChanges: true }, // Important for offline-first to trigger when local cache updates
-            (querySnapshot) => {
-                const ledgerEvents: ClinicalEvent[] = [];
-                querySnapshot.forEach((doc) => {
-                    ledgerEvents.push({ id: doc.id, ...doc.data() } as ClinicalEvent);
-                });
-                setEvents(ledgerEvents);
-                setLoading(false);
-            },
-            (err) => {
-                setError(err);
-                setLoading(false);
-            }
-        );
+    subRef.current = pollData(
+      () => getClinicalLedgerByPatient(patientId, 200),
+      (entries) => {
+        const ledgerEvents: ClinicalEvent[] = entries.map((e: any) => ({
+          id: e.id,
+          patientId: e.patient_id,
+          providerId: e.provider_id,
+          type: e.type,
+          payload:
+            typeof e.payload === "string" ? JSON.parse(e.payload) : e.payload,
+          createdAt: e.created_at,
+        }));
+        setEvents(ledgerEvents);
+        setLoading(false);
+      },
+      3000, // Poll every 3 seconds (replaces Firestore real-time)
+    );
 
-        return () => unsubscribe();
-    }, [patientId]);
-
-    const addEvent = async (providerId: string, type: string, payload: any) => {
-        try {
-            const docRef = await addDoc(collection(db, 'clinical_ledger'), {
-                patientId,
-                providerId,
-                type,
-                payload,
-                createdAt: serverTimestamp(),
-            });
-            return docRef.id;
-        } catch (err) {
-            console.error('Error adding clinical event:', err);
-            throw err;
-        }
+    return () => {
+      if (subRef.current) subRef.current.stop();
     };
+  }, [patientId]);
 
-    return { events, loading, error, addEvent };
+  const addEvent = async (providerId: string, type: string, payload: any) => {
+    try {
+      const result = await addClinicalLedgerEntry({
+        patient_id: patientId,
+        provider_id: providerId,
+        type,
+        payload,
+      });
+      return result.id;
+    } catch (err) {
+      console.error("Error adding clinical event:", err);
+      throw err;
+    }
+  };
+
+  return { events, loading, error, addEvent };
 };
