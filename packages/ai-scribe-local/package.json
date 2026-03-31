@@ -1,0 +1,13 @@
+{
+  "name": "@skids/ai-scribe-local",
+  "version": "1.0.0",
+  "main": "src/index.ts",
+  "private": true,
+  "dependencies": {
+    "@huggingface/transformers": "^3.0.0",
+    "onnxruntime-web": "^1.18.0"
+  },
+  "devDependencies": {
+    "typescript": "^5.0.0"
+  }
+}
